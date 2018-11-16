@@ -1,0 +1,121 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 16 05:13:02 2018
+
+@author: elisabeth
+"""
+### No plotnine on laptop so did this on Mac desktop at libary 
+#hopefully the plotnine works when you run this on your computer 
+#didn't want to use Python and R Studio 
+#I was able to plot this on School Mac but not personal laptop b/c no plotnine
+
+###Question 1
+#Compare quadratic versus linear model for data.txt
+#Quadratic model: y = a+bx+cx^2
+#Linear model: y = a + bx 
+
+#import packages
+import numpy
+import pandas
+from scipy.optimize import minimize
+from scipy.stats import norm
+from scipy.stats import chi2
+
+#load data.txt
+data=pandas.read_csv('data.txt',header=0,sep=',')
+print(data)
+#put data.txt into data frame
+df=pandas.DataFrame({'x':x,'y':y})
+# plot data.txt
+ggplot(df,aes(x='x',y='y'))+geom_point()+theme_classic()
+#plot looks linear to me! 
+
+#create models for quadratic and linear models
+#quadratic model
+def QuadMod(p,obs):
+    B0=p[0]
+    B1=p[1]
+    sigma=p[2]
+    
+    pred=B0+B1*obs.x
+    
+    nll=-1*norm(pred,sigma).logpdf(obs.y).sum()
+    return nll
+#linear model
+def LinMod(p,obs):
+    B0=p[0]
+    sigma=p[1]
+    
+    pred=B0
+
+    nll=-1*norm(pred,sigma).logpdf(obs.y).sum()
+    return nll
+
+# estimate parameters for both
+QuadGuess=numpy.array([12,12,1])
+LinGuess=numpy.array([12,1])
+
+fitQuad=minimize(QuadMod,QuadGuess,method="Nelder-Mead",args=data)
+fitLin=minimize(LinMod,LinGuess,method="Nelder-Mead",args=data)
+
+print(fitQuad.x)
+print(fitLin.x)
+
+# run likelihood ratio test
+teststat=2*(fitLin.fun-fitQuad.fun)
+
+df=len(fitQuad.x)-len(fitLin.x)
+
+1-stats.chi2.cdf(teststat,df)
+
+
+
+### Question 2
+#two state variables described by two differential equations
+#Generate script that uses 3 or more model simluatinos to demonstrate 
+#validity of criteria for coexistence 
+#criteria for coexistence: a12<a11 and a21<a22
+#import packages
+import pandas
+import scipy
+import scipy.integrate as spint
+from plotnine import *
+
+def tumorSim(y,t0,R1,N1,a11,N2,a12,R2,a22,a21):
+    N1=y[0]
+    N2=y[1]
+    
+    dN1dt=R1*(1-N1*a11-N2*a12)*N1
+    dN2dt=R2*(1-N2*a22-N1*a21)*N2
+    
+    return [dN1dt,dN2dt]
+
+#model simulation 1: a12<a11 and a21<a22 (best for coexistence)
+times=range(0,100)
+y0=[0.1,0.1]
+params=(0.5,2,0.5,0.5,0.5,0.5,2,0.5)
+sim=spint.odeint(func=tumorSim,y0=y0,t=times,args=params)
+simDF=pandas.DataFrame({"t":times,"normal":sim[:,0],"tumor":sim[:,1]})
+ggplot(simDF,aes(x="t",y="normal"))+geom_line()+geom_line(simDF,aes(x="t",y="tumor"),color='red')+theme_classic()
+#plot shows existence of both species
+
+#model simluation 2: a12<a11 and a21>a22
+times=range(0,100)
+y0=[0.1,0.1]
+params=(0.5,0.5,0.5,0.5,2,0.5,2,0.5)
+sim=spint.odeint(func=tumorSim,y0=y0,t=times,args=params)
+simDF=pandas.DataFrame({"t":times,"normal":sim[:,0],"tumor":sim[:,1]})
+ggplot(simDF,aes(x="t",y="normal"))+geom_line()+geom_line(simDF,aes(x="t",y="tumor"),color='red')+theme_classic()
+#plot only shows existence of one species 
+
+#model simulation 3: a12>a11 and a21>a22 (worst for coexistence)
+times=range(0,100)
+y0=[0.1,0.1]
+params=(0.5,0.5,0.5,0.5,2,0.5,0.5,2)
+sim=spint.odeint(func=tumorSim,y0=y0,t=times,args=params)
+simDF=pandas.DataFrame({"t":times,"normal":sim[:,0],"tumor":sim[:,1]})
+ggplot(simDF,aes(x="t",y="normal"))+geom_line()+geom_line(simDF,aes(x="t",y="tumor"),color='red')+theme_classic()
+#plot only shows existence of one species 
+
+#based on plots, these criteria are valid for existence 
